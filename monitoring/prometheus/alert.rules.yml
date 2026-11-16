@@ -1,0 +1,103 @@
+
+groups:
+  - name: node_api_alerts
+    rules:
+
+      # =====================================
+      # 1. DISPONIBILIDADE DA API
+      # =====================================
+      - alert: ApiDown
+        expr: up{job="api"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          service: node-api
+        annotations:
+          summary: "API indisponivel"
+          description: "O Prometheus nao consegue coletar metricas da API."
+
+      # =====================================
+      # 2. TAXA DE ERROS HTTP 5XX
+      # =====================================
+      - alert: HighHttp5xxErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="api", status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total{job="api"}[5m])), 0.001)
+          ) > 0.05
+          and
+          sum(rate(http_requests_total{job="api"}[5m])) > 0.1
+        for: 1m
+        labels:
+          severity: critical
+          service: node-api
+        annotations:
+          summary: "Taxa elevada de erros HTTP 5xx"
+          description: "Mais de 5% das requisicoes estao retornando erros de servidor."
+
+      # =====================================
+      # 3. TAXA DE ERROS HTTP 4XX
+      # =====================================
+      - alert: HighHttp4xxErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{job="api", status_code=~"4.."}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total{job="api"}[5m])), 0.001)
+          ) > 0.20
+          and
+          sum(rate(http_requests_total{job="api"}[5m])) > 0.1
+        for: 1m
+        labels:
+          severity: warning
+          service: node-api
+        annotations:
+          summary: "Taxa elevada de erros HTTP 4xx"
+          description: "Mais de 20% das requisicoes estao retornando erros de cliente."
+
+      # =====================================
+      # 4. LATENCIA ELEVADA - P95
+      # =====================================
+      - alert: HighApiLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, route) (
+              rate(http_request_duration_seconds_bucket{job="api"}[5m])
+            )
+          ) > 0.5
+        for: 1m
+        labels:
+          severity: warning
+          service: node-api
+        annotations:
+          summary: "Latencia elevada na API"
+          description: "O P95 da rota {{ $labels.route }} ultrapassou 500ms."
+
+      # =====================================
+      # 5. CONSUMO DE MEMORIA
+      # =====================================
+      - alert: HighNodeMemoryUsage
+        expr: |
+          process_resident_memory_bytes{job="api"} > 314572800
+        for: 2m
+        labels:
+          severity: warning
+          service: node-api
+        annotations:
+          summary: "Consumo elevado de memoria"
+          description: "O processo Node.js ultrapassou 300MB de memoria residente."
+
+      # =====================================
+      # 6. REQUISICOES SIMULTANEAS
+      # =====================================
+      - alert: HighActiveRequests
+        expr: http_active_requests{job="api"} > 100
+        for: 2m
+        labels:
+          severity: warning
+          service: node-api
+        annotations:
+          summary: "Muitas requisicoes simultaneas"
+          description: "A API possui mais de 100 requisicoes HTTP em andamento."

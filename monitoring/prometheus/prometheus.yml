@@ -1,0 +1,44 @@
+
+global:
+  # Frequência de coleta das métricas
+  scrape_interval: 15s
+
+  # Frequência de avaliação das regras
+  evaluation_interval: 15s
+
+  # Tempo de espera para envio dos alertas
+  scrape_timeout: 10s
+
+# Configuração do Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Arquivo de regras de alerta
+rule_files:
+  - /etc/prometheus/alert.rules.yml
+
+# Configuração dos alvos de coleta
+scrape_configs:
+
+  # Monitoramento do próprio Prometheus
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+        labels:
+          service: prometheus
+          environment: development
+
+  # Monitoramento da API
+  - job_name: api
+    metrics_path: /metrics
+    scrape_interval: 15s
+    static_configs:
+      - targets:
+          - api:8000
+        labels:
+          service: node-api
+          environment: development
